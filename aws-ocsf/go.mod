@@ -1,4 +1,4 @@
-module ocsf-go
+module aws-ocsf
 
 go 1.24
 
@@ -8,7 +8,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/securityhub v1.57.0
 	github.com/buger/jsonparser v1.1.1
 	github.com/telophasehq/go-ocsf v0.2.0
-	go.bytecodealliance.org/cm v0.3.0
 )
 
 require (
@@ -27,6 +26,7 @@ require (
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/urfave/cli/v3 v3.3.3 // indirect
 	go.bytecodealliance.org v0.7.0 // indirect
+	go.bytecodealliance.org/cm v0.3.0 // indirect
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect

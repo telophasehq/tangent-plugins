@@ -1,26 +1,28 @@
 [
   {
-    "msg": "my log",
-    "msg.level": "info",
-    "seen": 5,
-    "duration": 6.3,
-    "tags": [
-      "tag1"
-    ],
-    "source": {
-      "name": "myservice"
-    }
+    "source": {"name": "aws.vpc_flow"},
+    "start_time": 1729000000000,
+    "end_time": 1729000005000,
+    "srcaddr": "10.0.0.1",
+    "srcport": 44321,
+    "dstaddr": "54.239.28.85",
+    "dstport": 443,
+    "protocol_name": "tcp",
+    "bytes": 1234,
+    "packets": 12,
+    "vpc_id": "vpc-0123456789abcdef0"
   },
   {
-    "msg": "my log",
-    "msg.level": "info",
-    "seen": 5,
-    "duration": 6.3,
-    "tags": [
-      "tag1"
-    ],
-    "source": {
-      "name": "myservice"
-    }
+    "source": {"name": "aws.vpc_flow"},
+    "start_time": 1729000010000,
+    "end_time": 1729000013000,
+    "srcaddr": "10.0.0.2",
+    "srcport": 51514,
+    "dstaddr": "1.1.1.1",
+    "dstport": 53,
+    "protocol_name": "udp",
+    "bytes": 256,
+    "packets": 4,
+    "vpc_id": "vpc-0123456789abcdef0"
   }
 ]

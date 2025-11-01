@@ -11,6 +11,7 @@ import (
 	"okta_system_logs_api_activity/tangenthelpers"
 
 	"github.com/segmentio/encoding/json"
+	ocsf "github.com/telophasehq/go-ocsf/ocsf/v1_5_0"
 	"go.bytecodealliance.org/cm"
 )
 
@@ -18,72 +19,6 @@ var (
 	bufPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
 )
 
-type oktaActorUser struct {
-	EmailAddr string `json:"email_addr"`
-	Name      string `json:"name"`
-	Type      string `json:"type"`
-	TypeId    int    `json:"type_id"`
-	Uid       string `json:"uid"`
-}
-type oktaSession struct {
-	Uid string `json:"uid"`
-}
-type oktaActor struct {
-	Session oktaSession   `json:"session"`
-	User    oktaActorUser `json:"user"`
-}
-type oktaAPI struct {
-	Operation string `json:"operation"`
-}
-type oktaHttpReq struct {
-	Uid       string `json:"uid"`
-	UserAgent string `json:"user_agent"`
-}
-type oktaDst struct {
-	SvcName string `json:"svc_name"`
-}
-type oktaProduct struct {
-	Name       string `json:"name"`
-	VendorName string `json:"vendor_name"`
-	Version    string `json:"version"`
-}
-type oktaMetadata struct {
-	EventCode string      `json:"event_code"`
-	Product   oktaProduct `json:"product"`
-	Profiles  []string    `json:"profiles"`
-	Uid       string      `json:"uid"`
-	Version   string      `json:"version"`
-}
-type oktaAS struct {
-	Name   string `json:"name"`
-	Number int    `json:"number"`
-}
-type oktaLocation struct {
-	City       string  `json:"city"`
-	Country    string  `json:"country"`
-	Isp        string  `json:"isp"`
-	Lat        float64 `json:"lat"`
-	Long       float64 `json:"long"`
-	PostalCode string  `json:"postal_code"`
-}
-type oktaOS struct {
-	Name   string `json:"name"`
-	Type   string `json:"type"`
-	TypeId int    `json:"type_id"`
-}
-type oktaSrc struct {
-	AutonomousSystem oktaAS       `json:"autonomous_system"`
-	Ip               string       `json:"ip"`
-	Location         oktaLocation `json:"location"`
-	Os               oktaOS       `json:"os"`
-	Type             string       `json:"type"`
-}
-type oktaObservable struct {
-	Name   string `json:"name"`
-	Type   string `json:"type"`
-	TypeId int    `json:"type_id"`
-	Value  string `json:"value"`
-}
 type oktaAuthCtx struct {
 	AuthenticationStep int    `json:"authenticationStep"`
 	RootSessionId      string `json:"rootSessionId"`
@@ -134,31 +69,8 @@ type oktaUnmapped struct {
 	Transaction           oktaTxn      `json:"transaction"`
 	Request               oktaRequest  `json:"request"`
 }
-type oktaOutput struct {
-	ActivityId   int              `json:"activity_id"`
-	ActivityName string           `json:"activity_name"`
-	Actor        oktaActor        `json:"actor"`
-	Api          oktaAPI          `json:"api"`
-	CategoryName string           `json:"category_name"`
-	CategoryUid  int              `json:"category_uid"`
-	ClassName    string           `json:"class_name"`
-	ClassUid     int              `json:"class_uid"`
-	DstEndpoint  oktaDst          `json:"dst_endpoint"`
-	HttpRequest  oktaHttpReq      `json:"http_request"`
-	Message      string           `json:"message"`
-	Metadata     oktaMetadata     `json:"metadata"`
-	Observables  []oktaObservable `json:"observables"`
-	Severity     string           `json:"severity"`
-	SeverityId   int              `json:"severity_id"`
-	SrcEndpoint  oktaSrc          `json:"src_endpoint"`
-	Status       string           `json:"status"`
-	StatusId     int              `json:"status_id"`
-	Time         int64            `json:"time"`
-	TimeDT       string           `json:"time_dt"`
-	TypeName     string           `json:"type_name"`
-	TypeUid      int              `json:"type_uid"`
-	Unmapped     oktaUnmapped     `json:"unmapped"`
-}
+
+// legacy output replaced by OCSF v1.5 APIActivity
 
 func Wire() {
 	mapper.Exports.Metadata = func() mapper.Meta {
@@ -192,79 +104,63 @@ func Wire() {
 				}
 			}
 
-			user := oktaActorUser{Type: "User", TypeId: 1}
+			// Actor
+			var actor ocsf.Actor
+			var user ocsf.User
+			user.Type = stringPtr("User")
+			user.TypeId = int32Ptr(1)
 			if v := tangenthelpers.GetString(lv, "actor.alternateId"); v != nil {
-				user.EmailAddr = *v
+				user.EmailAddr = v
 			}
 			if v := tangenthelpers.GetString(lv, "actor.displayName"); v != nil {
-				user.Name = *v
+				user.Name = v
 			}
 			if v := tangenthelpers.GetString(lv, "actor.id"); v != nil {
-				user.Uid = *v
+				user.Uid = v
 			}
-			actor := oktaActor{User: user}
+			actor.User = &user
 			if v := tangenthelpers.GetString(lv, "authenticationContext.rootSessionId"); v != nil {
-				actor.Session.Uid = *v
+				actor.Session = &ocsf.Session{Uid: v}
 			}
 
 			op := getStringOr(lv, "eventType", "")
-			api := oktaAPI{Operation: op}
+			api := ocsf.API{Operation: op}
 
-			http := oktaHttpReq{Uid: getStringOr(lv, "debugContext.debugData.requestId", "")}
-			if v := tangenthelpers.GetString(lv, "client.userAgent.rawUserAgent"); v != nil {
-				http.UserAgent = *v
-			}
-			dst := oktaDst{SvcName: getStringOr(lv, "debugContext.debugData.url", "")}
+			// Destination/service context not required in 1.5 minimal
 
-			md := oktaMetadata{EventCode: op, Product: oktaProduct{Name: "Okta System Log", VendorName: "Okta", Version: "0"}, Profiles: []string{"datetime"}, Version: "1.3.0"}
+			prod := "Okta System Log"
+			vendor := "Okta"
+			md := ocsf.Metadata{Version: "1.5.0", Product: ocsf.Product{Name: &prod, VendorName: &vendor}, EventCode: &op}
 			if v := tangenthelpers.GetString(lv, "uuid"); v != nil {
-				md.Uid = *v
+				md.Uid = v
 			}
 
-			src := oktaSrc{Type: "Mobile"}
+			var src ocsf.NetworkEndpoint
 			if v := tangenthelpers.GetString(lv, "client.ipAddress"); v != nil {
-				src.Ip = *v
+				src.Ip = v
 			}
-			if v := tangenthelpers.GetString(lv, "securityContext.asOrg"); v != nil {
-				src.AutonomousSystem.Name = *v
-			}
-			if v := tangenthelpers.GetString(lv, "securityContext.isp"); v != nil {
-				src.Location.Isp = *v
-			}
-			if v := tangenthelpers.GetInt64(lv, "securityContext.asNumber"); v != nil {
-				src.AutonomousSystem.Number = int(*v)
-			}
+			var loc ocsf.GeoLocation
 			if v := tangenthelpers.GetString(lv, "client.geographicalContext.city"); v != nil {
-				src.Location.City = *v
+				loc.City = v
 			}
 			if v := tangenthelpers.GetString(lv, "client.geographicalContext.country"); v != nil {
-				src.Location.Country = *v
+				loc.Country = v
 			}
 			if v := tangenthelpers.GetString(lv, "client.geographicalContext.postalCode"); v != nil {
-				src.Location.PostalCode = *v
+				loc.PostalCode = v
 			}
 			if v := tangenthelpers.GetFloat64(lv, "client.geographicalContext.geolocation.lat"); v != nil {
-				src.Location.Lat = *v
+				loc.Lat = v
 			}
 			if v := tangenthelpers.GetFloat64(lv, "client.geographicalContext.geolocation.lon"); v != nil {
-				src.Location.Long = *v
+				loc.Long = v
 			}
-			if v := tangenthelpers.GetString(lv, "client.userAgent.os"); v != nil {
-				src.Os.Name = *v
+			// set only if any present
+			if loc.City != nil || loc.Country != nil || loc.PostalCode != nil || loc.Lat != nil || loc.Long != nil {
+				src.Location = &loc
 			}
-			src.Os.Type = "macOS"
-			src.Os.TypeId = 300
 
-			var observables []oktaObservable
-			if src.Ip != "" {
-				observables = append(observables, oktaObservable{Name: "src_endpoint.ip", Type: "IP Address", TypeId: 2, Value: src.Ip})
-			}
-			if http.UserAgent != "" {
-				observables = append(observables, oktaObservable{Name: "http_request.user_agent", Type: "HTTP User-Agent", TypeId: 16, Value: http.UserAgent})
-			}
-			if user.Name != "" {
-				observables = append(observables, oktaObservable{Name: "actor.user.name", Type: "User Name", TypeId: 4, Value: user.Name})
-			}
+			// Observables omitted in minimal 1.5 output
 
 			unm := oktaUnmapped{}
 			if v := tangenthelpers.GetInt64(lv, "authenticationContext.authenticationStep"); v != nil {
@@ -326,28 +222,41 @@ func Wire() {
 				}
 			}
 
-			out := oktaOutput{
-				ActivityId: 1, ActivityName: "Create",
-				Actor: actor, Api: api,
-				CategoryName: "Application Activity", CategoryUid: 6,
-				ClassName: "API Activity", ClassUid: 6003,
-				DstEndpoint: dst, HttpRequest: http,
-				Message:     getStringOr(lv, "displayMessage", ""),
-				Metadata:    md,
-				Observables: observables,
-				Severity:    "Informational", SeverityId: 1,
-				SrcEndpoint: src,
-				Status:      "Success", StatusId: 1,
-				Time:     ts.Unix(),
-				TimeDT:   ts.Truncate(time.Second).Format("2006-01-02T15:04:05.000Z"),
-				TypeName: "API Activity: Create", TypeUid: 600301,
-				Unmapped: unm,
+			// Activity classification
+			activityId, activityName, typeUid, typeName := classifyAPIActivity(op)
+			sev := "informational"
+			severityId := int32(1)
+			status := "success"
+			statusId := int32(1)
+			out := ocsf.APIActivity{
+				ActivityId:     activityId,
+				ActivityName:   &activityName,
+				Actor:          actor,
+				Api:            api,
+				CategoryName:   stringPtr("Application Activity"),
+				CategoryUid:    6,
+				ClassName:      stringPtr("API Activity"),
+				ClassUid:       6003,
+				Message:        stringPtr(getStringOr(lv, "displayMessage", "")),
+				Metadata:       md,
+				Severity:       &sev,
+				SeverityId:     severityId,
+				SrcEndpoint:    src,
+				Status:         &status,
+				StatusId:       &statusId,
+				Time:           ts.UnixMilli(),
+				TypeName:       &typeName,
+				TypeUid:        int64(typeUid),
+				TimezoneOffset: int32Ptr(0),
 			}
 
-			if err := json.NewEncoder(buf).Encode(out); err != nil {
+			line, err := json.Marshal(out)
+			if err != nil {
 				res.SetErr(err.Error())
 				return
 			}
+			buf.Write(line)
+			buf.WriteByte('\n')
 		}
 
 		res.SetOK(cm.ToList(buf.Bytes()))
@@ -373,3 +282,50 @@ func init() {
 }
 
 func main() {}
+
+func int32Ptr(i int32) *int32    { return &i }
+func stringPtr(s string) *string { return &s }
+
+func classifyAPIActivity(op string) (int32, string, int, string) {
+	if containsFold(op, "create") {
+		return 1, "create", 600301, "API Activity: Create"
+	}
+	if containsFold(op, "get") || containsFold(op, "list") || containsFold(op, "read") {
+		return 2, "read", 600302, "API Activity: Read"
+	}
+	if containsFold(op, "update") || containsFold(op, "modify") || containsFold(op, "set") || containsFold(op, "patch") {
+		return 3, "update", 600303, "API Activity: Update"
+	}
+	if containsFold(op, "delete") || containsFold(op, "remove") {
+		return 4, "delete", 600304, "API Activity: Delete"
+	}
+	return 99, "other", 600399, "API Activity: Other"
+}
+
+func containsFold(s, sub string) bool {
+	// simple case-insensitive substring search without allocation
+	if len(sub) == 0 || len(s) < len(sub) {
+		return false
+	}
+	for i := 0; i <= len(s)-len(sub); i++ {
+		ok := true
+		for j := 0; j < len(sub); j++ {
+			cs := s[i+j]
+			cp := sub[j]
+			if cs >= 'A' && cs <= 'Z' {
+				cs = cs - 'A' + 'a'
+			}
+			if cp >= 'A' && cp <= 'Z' {
+				cp = cp - 'A' + 'a'
+			}
+			if cs != cp {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return true
+		}
+	}
+	return false
+}

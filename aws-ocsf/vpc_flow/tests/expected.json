@@ -1,22 +1,38 @@
 [
   {
-    "message": "my log",
-    "level": "info",
-    "seen": 5,
-    "duration": 6.3,
-    "tags": [
-      "tag1"
-    ],
-    "service": "myservice"
+    "metadata": {
+      "version": "1.5.0",
+      "product": {"name": "VPC Flow Logs", "vendor_name": "AWS"}
+    },
+    "category_uid": 4,
+    "class_uid": 4001,
+    "severity_id": 1,
+    "time": 1729000005000,
+    "start_time": 1729000000000,
+    "end_time": 1729000005000,
+    "src_endpoint": {"ip": "10.0.0.1", "port": 44321, "vpc_uid": "vpc-0123456789abcdef0"},
+    "dst_endpoint": {"ip": "54.239.28.85", "port": 443},
+    "connection_info": {"direction_id": 0, "protocol_name": "tcp"},
+    "traffic": {"bytes": 1234, "packets": 12},
+    "activity_id": 2,
+    "type_uid": 400102
   },
   {
-    "message": "my log",
-    "level": "info",
-    "seen": 5,
-    "duration": 6.3,
-    "tags": [
-      "tag1"
-    ],
-    "service": "myservice"
+    "metadata": {
+      "version": "1.5.0",
+      "product": {"name": "VPC Flow Logs", "vendor_name": "AWS"}
+    },
+    "category_uid": 4,
+    "class_uid": 4001,
+    "severity_id": 1,
+    "time": 1729000013000,
+    "start_time": 1729000010000,
+    "end_time": 1729000013000,
+    "src_endpoint": {"ip": "10.0.0.2", "port": 51514, "vpc_uid": "vpc-0123456789abcdef0"},
+    "dst_endpoint": {"ip": "1.1.1.1", "port": 53},
+    "connection_info": {"direction_id": 0, "protocol_name": "udp"},
+    "traffic": {"bytes": 256, "packets": 4},
+    "activity_id": 2,
+    "type_uid": 400102
   }
 ]

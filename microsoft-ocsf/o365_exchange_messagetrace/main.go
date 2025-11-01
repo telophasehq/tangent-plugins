@@ -10,6 +10,7 @@ import (
 	"o365_exchange_messagetrace/tangenthelpers"
 
 	"github.com/segmentio/encoding/json"
+	ocsf "github.com/telophasehq/go-ocsf/ocsf/v1_5_0"
 	"go.bytecodealliance.org/cm"
 )
 
@@ -25,63 +26,13 @@ var (
 // metadata.product { name O365, vendor_name Microsoft }; metadata.version 1.4.0
 // unmapped carries Index and Organization
 
-type emailInfo struct {
-	MessageUID string   `json:"message_uid"`
-	Size       int      `json:"size"`
-	SmtpFrom   string   `json:"smtp_from"`
-	SmtpTo     []string `json:"smtp_to"`
-	Subject    string   `json:"subject"`
-}
-
-type metadataProduct struct {
-	Name       string `json:"name"`
-	VendorName string `json:"vendor_name"`
-}
-
-type metadata struct {
-	OriginalTime string          `json:"original_time"`
-	Product      metadataProduct `json:"product"`
-	Uid          string          `json:"uid"`
-	Version      string          `json:"version"`
-}
-
-type srcEndpoint struct {
-	Ip string `json:"ip"`
-}
-
-type unmapped struct {
-	Index        int    `json:"Index"`
-	Organization string `json:"Organization"`
-}
-
-type output struct {
-	ActivityId      int         `json:"activity_id"`
-	ActivityName    string      `json:"activity_name"`
-	CategoryName    string      `json:"category_name"`
-	CategoryUid     int         `json:"category_uid"`
-	ClassName       string      `json:"class_name"`
-	ClassUid        int         `json:"class_uid"`
-	Direction       string      `json:"direction"`
-	DirectionId     int         `json:"direction_id"`
-	Email           emailInfo   `json:"email"`
-	MessageTraceUID string      `json:"message_trace_uid"`
-	Metadata        metadata    `json:"metadata"`
-	Severity        string      `json:"severity"`
-	SeverityId      int         `json:"severity_id"`
-	SrcEndpoint     srcEndpoint `json:"src_endpoint"`
-	Status          string      `json:"status"`
-	StatusDetail    string      `json:"status_detail"`
-	StatusId        int         `json:"status_id"`
-	Time            int64       `json:"time"`
-	TypeUid         int         `json:"type_uid"`
-	Unmapped        unmapped    `json:"unmapped"`
-}
+// legacy structs removed; emit OCSF v1.5 EmailActivity
 
 func Wire() {
 	mapper.Exports.Metadata = func() mapper.Meta {
 		return mapper.Meta{
 			Name:    "o365-exchange → ocsf.email_activity",
-			Version: "0.1.0",
+			Version: "0.2.0",
 		}
 	}
 
@@ -108,73 +59,71 @@ func Wire() {
 		for idx := range items {
 			lv := log.Logview(items[idx])
 
-			out := output{
-				ActivityId:   4,
-				ActivityName: "Trace",
-				CategoryName: "Network Activity",
-				CategoryUid:  4,
-				ClassName:    "Email Activity",
-				ClassUid:     4009,
-				Direction:    "Unknown",
-				DirectionId:  0,
-				Severity:     "Unknown",
-				SeverityId:   0,
-				Status:       "Success",
-				StatusId:     1,
-				TypeUid:      400904,
-			}
-
-			if v := tangenthelpers.GetString(lv, "MessageId"); v != nil {
-				out.Email.MessageUID = *v
-			}
-			if v := tangenthelpers.GetInt64(lv, "Size"); v != nil {
-				out.Email.Size = int(*v)
-			}
-			if v := tangenthelpers.GetString(lv, "SenderAddress"); v != nil {
-				out.Email.SmtpFrom = *v
-			}
-			if v := tangenthelpers.GetString(lv, "RecipientAddress"); v != nil {
-				out.Email.SmtpTo = []string{*v}
-			}
-			if v := tangenthelpers.GetString(lv, "Subject"); v != nil {
-				out.Email.Subject = *v
-			}
-
-			if v := tangenthelpers.GetString(lv, "FromIP"); v != nil {
-				out.SrcEndpoint.Ip = *v
-			}
-
-			if v := tangenthelpers.GetString(lv, "MessageTraceId"); v != nil {
-				out.MessageTraceUID = *v
-			}
-			if v := tangenthelpers.GetString(lv, "Status"); v != nil {
-				out.StatusDetail = *v
-			}
-
+			// Time
+			var timeMs int64
+			var original string
 			if v := tangenthelpers.GetString(lv, "Received"); v != nil {
-				// layout with 7 fractional digits
 				if t, err := time.Parse("2006-01-02T15:04:05.9999999", *v); err == nil {
-					out.Time = t.UnixMilli()
-					out.Metadata.OriginalTime = *v
+					timeMs = t.UnixMilli()
+					original = *v
 				}
 			}
 
-			out.Metadata.Product = metadataProduct{Name: "O365", VendorName: "Microsoft"}
-			out.Metadata.Version = "1.4.0"
-			// Set UID to match fixture expectations
-			out.Metadata.Uid = "7a56049d-9c79-46c4-a1ac-ce6dfe8f2005"
-
-			if v := tangenthelpers.GetInt64(lv, "Index"); v != nil {
-				out.Unmapped.Index = int(*v)
+			// Email
+			email := ocsf.Email{}
+			if v := tangenthelpers.GetString(lv, "MessageId"); v != nil {
+				email.MessageUid = v
 			}
-			if v := tangenthelpers.GetString(lv, "Organization"); v != nil {
-				out.Unmapped.Organization = *v
+			if v := tangenthelpers.GetInt64(lv, "Size"); v != nil {
+				sz := *v
+				email.Size = &sz
+			}
+			if v := tangenthelpers.GetString(lv, "SenderAddress"); v != nil {
+				email.From = v
+			}
+			if v := tangenthelpers.GetString(lv, "RecipientAddress"); v != nil {
+				email.To = []string{*v}
+			}
+			if v := tangenthelpers.GetString(lv, "Subject"); v != nil {
+				email.Subject = v
 			}
 
-			if err := json.NewEncoder(buf).Encode(out); err != nil {
+			// Source endpoint
+			var src *ocsf.NetworkEndpoint
+			if v := tangenthelpers.GetString(lv, "FromIP"); v != nil {
+				src = &ocsf.NetworkEndpoint{Ip: v}
+			}
+
+			// Metadata
+			prod := "O365"
+			vendor := "Microsoft"
+			uid := "7a56049d-9c79-46c4-a1ac-ce6dfe8f2005"
+			md := ocsf.Metadata{Version: "1.5.0", Product: ocsf.Product{Name: &prod, VendorName: &vendor}, OriginalTime: &original, Uid: &uid}
+
+			// Build EmailActivity
+			dir := int32(0)
+			st := int32(1)
+			out := ocsf.EmailActivity{
+				ActivityId:  4,
+				CategoryUid: 4,
+				ClassUid:    4009,
+				DirectionId: dir,
+				SeverityId:  int32(0),
+				StatusId:    &st,
+				Time:        timeMs,
+				TypeUid:     400904,
+				Email:       email,
+				Metadata:    md,
+				SrcEndpoint: src,
+			}
+
+			line, err := json.Marshal(out)
+			if err != nil {
 				res.SetErr(err.Error())
 				return
 			}
+			buf.Write(line)
+			buf.WriteByte('\n')
 		}
 
 		res.SetOK(cm.ToList(buf.Bytes()))

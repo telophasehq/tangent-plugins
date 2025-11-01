@@ -11,6 +11,7 @@ import (
 	"github_audit_api_activity/tangenthelpers"
 
 	"github.com/segmentio/encoding/json"
+	ocsf "github.com/telophasehq/go-ocsf/ocsf/v1_5_0"
 	"go.bytecodealliance.org/cm"
 )
 
@@ -31,99 +32,7 @@ var (
 // severity Informational/1
 // unmapped carries passthroughs: external_id, transport_protocol_name, business_id, user, user_id, repository_public
 
-type ghAccount struct {
-	Name   string `json:"name,omitempty"`
-	Type   string `json:"type,omitempty"`
-	TypeId int    `json:"type_id,omitempty"`
-	Uid    string `json:"uid,omitempty"`
-}
-
-type ghUser struct {
-	Account   *ghAccount `json:"account,omitempty"`
-	EmailAddr *string    `json:"email_addr,omitempty"`
-	Name      *string    `json:"name,omitempty"`
-	Type      *string    `json:"type,omitempty"`
-	TypeId    *int       `json:"type_id,omitempty"`
-	Uid       *string    `json:"uid,omitempty"`
-}
-
-type ghActor struct {
-	User ghUser `json:"user"`
-}
-
-type ghAPI struct {
-	Operation string `json:"operation"`
-}
-
-type ghHttpReq struct {
-	UserAgent string `json:"user_agent"`
-}
-
-type ghProduct struct {
-	Name       string `json:"name"`
-	VendorName string `json:"vendor_name"`
-}
-
-type ghMetadata struct {
-	EventCode string    `json:"event_code"`
-	Product   ghProduct `json:"product"`
-	Profiles  []string  `json:"profiles"`
-	Uid       string    `json:"uid"`
-	Version   string    `json:"version"`
-}
-
-type ghLocation struct {
-	Country string `json:"country"`
-}
-
-type ghSrcEndpoint struct {
-	Location ghLocation `json:"location"`
-	Ip       string     `json:"ip"`
-}
-
-type ghObservable struct {
-	Name   string `json:"name"`
-	Type   string `json:"type"`
-	TypeId int    `json:"type_id"`
-	Value  string `json:"value"`
-}
-
-type ghResource struct {
-	Name string `json:"name"`
-	Uid  string `json:"uid"`
-}
-
-type ghUnmapped struct {
-	ExternalId            string `json:"external_id"`
-	TransportProtocolName string `json:"transport_protocol_name"`
-	BusinessId            int    `json:"business_id"`
-	User                  string `json:"user"`
-	UserId                int    `json:"user_id"`
-	RepositoryPublic      bool   `json:"repository_public"`
-}
-
-type ghOutput struct {
-	ActivityId   int            `json:"activity_id"`
-	ActivityName string         `json:"activity_name"`
-	Actor        ghActor        `json:"actor"`
-	Api          ghAPI          `json:"api"`
-	CategoryName string         `json:"category_name"`
-	CategoryUid  int            `json:"category_uid"`
-	ClassName    string         `json:"class_name"`
-	ClassUid     int            `json:"class_uid"`
-	HttpRequest  ghHttpReq      `json:"http_request"`
-	Metadata     ghMetadata     `json:"metadata"`
-	Observables  []ghObservable `json:"observables"`
-	Resources    []ghResource   `json:"resources"`
-	Severity     string         `json:"severity"`
-	SeverityId   int            `json:"severity_id"`
-	SrcEndpoint  ghSrcEndpoint  `json:"src_endpoint"`
-	Time         int64          `json:"time"`
-	TimeDT       string         `json:"time_dt"`
-	TypeName     string         `json:"type_name"`
-	TypeUid      int            `json:"type_uid"`
-	Unmapped     ghUnmapped     `json:"unmapped"`
-}
+// legacy structs removed; use OCSF v1.5 typed model
 
 func Wire() {
 	mapper.Exports.Metadata = func() mapper.Meta {
@@ -160,138 +69,103 @@ func Wire() {
 			if v := tangenthelpers.GetInt64(lv, "@timestamp"); v != nil {
 				ts = *v
 			}
-			t := time.UnixMilli(ts).UTC()
+			_ = time.UnixMilli(ts).UTC()
 
-			// Actor
-			actorName := tangenthelpers.GetString(lv, "actor")
-			actorId := tangenthelpers.GetInt64(lv, "actor_id")
-			email := tangenthelpers.GetString(lv, "external_identity_nameid")
-			org := tangenthelpers.GetString(lv, "org")
-			orgId := tangenthelpers.GetInt64(lv, "org_id")
-
-			acc := &ghAccount{}
-			if org != nil {
-				acc.Name = *org
+			// Actor (OCSF)
+			var actor ocsf.Actor
+			var user ocsf.User
+			if v := tangenthelpers.GetString(lv, "actor"); v != nil {
+				user.Name = v
 			}
-			acc.Type = "Other"
-			acc.TypeId = 99
-			if orgId != nil {
-				acc.Uid = strconv.FormatInt(*orgId, 10)
+			if v := tangenthelpers.GetString(lv, "external_identity_nameid"); v != nil {
+				user.EmailAddr = v
 			}
-			u := ghUser{Account: acc, EmailAddr: email, Name: actorName}
-			utype := 0
-			u.TypeId = &utype
-			utypeStr := "Unknown"
-			u.Type = &utypeStr
-			if actorId != nil {
-				id := strconv.FormatInt(*actorId, 10)
-				u.Uid = &id
+			if id := tangenthelpers.GetInt64(lv, "actor_id"); id != nil {
+				s := strconv.FormatInt(*id, 10)
+				user.Uid = &s
 			}
-			actor := ghActor{User: u}
+			// account from org
+			if org := tangenthelpers.GetString(lv, "org"); org != nil {
+				acc := ocsf.Account{Name: org, Type: stringPtr("Other"), TypeId: int32Ptr(99)}
+				if orgId := tangenthelpers.GetInt64(lv, "org_id"); orgId != nil {
+					uid := strconv.FormatInt(*orgId, 10)
+					acc.Uid = &uid
+				}
+				user.Account = &acc
+			}
+			actor.User = &user
 
 			// API
 			op := ""
 			if v := tangenthelpers.GetString(lv, "action"); v != nil {
 				op = *v
 			}
-			api := ghAPI{Operation: op}
+			api := ocsf.API{Operation: op}
 
-			// HTTP
-			httpReq := ghHttpReq{}
-			if v := tangenthelpers.GetString(lv, "user_agent"); v != nil {
-				httpReq.UserAgent = *v
+			// Source endpoint
+			var src ocsf.NetworkEndpoint
+			if v := tangenthelpers.GetString(lv, "actor_ip"); v != nil {
+				src.Ip = v
+			}
+			if v := tangenthelpers.GetString(lv, "actor_location.country_code"); v != nil {
+				src.Location = &ocsf.GeoLocation{Country: v}
 			}
 
 			// Metadata
-			md := ghMetadata{
-				EventCode: op,
-				Product:   ghProduct{Name: "GitHub Audit Log", VendorName: "GitHub"},
-				Profiles:  []string{"datetime"},
-				Version:   "1.3.0",
-			}
+			prodName := "GitHub Audit Log"
+			vendor := "GitHub"
+			md := ocsf.Metadata{Version: "1.5.0", Product: ocsf.Product{Name: &prodName, VendorName: &vendor}, EventCode: &op}
 			if v := tangenthelpers.GetString(lv, "_document_id"); v != nil {
-				md.Uid = *v
-			}
-
-			// Source endpoint
-			src := ghSrcEndpoint{}
-			if v := tangenthelpers.GetString(lv, "actor_ip"); v != nil {
-				src.Ip = *v
-			}
-			if v := tangenthelpers.GetString(lv, "actor_location.country_code"); v != nil {
-				src.Location.Country = *v
-			}
-
-			// Observables
-			var observables []ghObservable
-			if src.Ip != "" {
-				observables = append(observables, ghObservable{Name: "src_endpoint.ip", Type: "IP Address", TypeId: 2, Value: src.Ip})
-			}
-			if httpReq.UserAgent != "" {
-				observables = append(observables, ghObservable{Name: "http_request.user_agent", Type: "HTTP User-Agent", TypeId: 16, Value: httpReq.UserAgent})
-			}
-			if actorName != nil {
-				observables = append(observables, ghObservable{Name: "actor.user.name", Type: "User Name", TypeId: 4, Value: *actorName})
+				md.Uid = v
 			}
 
 			// Resources
-			var resources []ghResource
+			var resources []ocsf.ResourceDetails
 			if v := tangenthelpers.GetString(lv, "repository"); v != nil {
-				r := ghResource{Name: *v}
+				var uid *string
 				if id := tangenthelpers.GetInt64(lv, "repository_id"); id != nil {
-					r.Uid = strconv.FormatInt(*id, 10)
+					s := strconv.FormatInt(*id, 10)
+					uid = &s
 				}
-				resources = append(resources, r)
+				resources = append(resources, ocsf.ResourceDetails{Name: v, Uid: uid})
 			}
 
-			// Unmapped
-			unm := ghUnmapped{}
-			if v := tangenthelpers.GetString(lv, "external_id"); v != nil {
-				unm.ExternalId = *v
-			}
-			if v := tangenthelpers.GetString(lv, "transport_protocol_name"); v != nil {
-				unm.TransportProtocolName = *v
-			}
-			if v := tangenthelpers.GetInt64(lv, "business_id"); v != nil {
-				unm.BusinessId = int(*v)
-			}
-			if v := tangenthelpers.GetString(lv, "user"); v != nil {
-				unm.User = *v
-			}
-			if v := tangenthelpers.GetInt64(lv, "user_id"); v != nil {
-				unm.UserId = int(*v)
-			}
-			if ok, b := getBool(lv, "repository_public"); ok {
-				unm.RepositoryPublic = b
-			}
-
-			out := ghOutput{
-				ActivityId:   99,
-				ActivityName: "Other",
-				Actor:        actor,
-				Api:          api,
-				CategoryName: "Application Activity",
-				CategoryUid:  6,
-				ClassName:    "API Activity",
-				ClassUid:     6003,
-				HttpRequest:  httpReq,
-				Metadata:     md,
-				Observables:  observables,
-				Resources:    resources,
-				Severity:     "Informational",
-				SeverityId:   1,
-				SrcEndpoint:  src,
-				Time:         ts,
-				TimeDT:       t.Truncate(time.Second).Format("2006-01-02T15:04:05.000Z"),
-				TypeName:     "API Activity: Other",
-				TypeUid:      600399,
-				Unmapped:     unm,
+			// Build OCSF object
+			activityId := int32(99)
+			activityName := "Other"
+			classUid := int32(6003)
+			categoryUid := int32(6)
+			typeUid := int64(classUid)*100 + int64(activityId)
+			typeName := "API Activity: Other"
+			sev := "informational"
+			severityId := int32(1)
+			out := ocsf.APIActivity{
+				ActivityId:     activityId,
+				ActivityName:   &activityName,
+				Actor:          actor,
+				Api:            api,
+				CategoryName:   stringPtr("Application Activity"),
+				CategoryUid:    categoryUid,
+				ClassName:      stringPtr("API Activity"),
+				ClassUid:       classUid,
+				Metadata:       md,
+				Resources:      resources,
+				Severity:       &sev,
+				SeverityId:     severityId,
+				SrcEndpoint:    src,
+				Time:           ts,
+				TypeName:       &typeName,
+				TypeUid:        typeUid,
+				TimezoneOffset: int32Ptr(0),
 			}
 
-			if err := json.NewEncoder(buf).Encode(out); err != nil {
+			line, err := json.Marshal(out)
+			if err != nil {
 				res.SetErr(err.Error())
 				return
 			}
+			buf.Write(line)
+			buf.WriteByte('\n')
 		}
 
 		res.SetOK(cm.ToList(buf.Bytes()))
@@ -305,6 +179,9 @@ func init() {
 }
 
 func main() {}
+
+func int32Ptr(i int32) *int32    { return &i }
+func stringPtr(s string) *string { return &s }
 
 // Helpers
 func getBool(lv log.Logview, path string) (bool, bool) {

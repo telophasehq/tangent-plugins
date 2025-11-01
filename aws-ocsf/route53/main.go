@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"route53/tangenthelpers"
 
 	"github.com/segmentio/encoding/json"
+	ocsf "github.com/telophasehq/go-ocsf/ocsf/v1_5_0"
 	"go.bytecodealliance.org/cm"
 )
 
@@ -173,170 +175,128 @@ func Wire() {
 		for idx := range items {
 			lv := log.Logview(items[idx])
 
-			out := route53Output{}
+			// OCSF v1.5 DNSActivity
+			const classUID int32 = 4003
+			const categoryUID int32 = 4
+			activityID := int32(6) // Traffic
+			severityID := int32(1)
+			typeUID := int64(classUID)*100 + int64(activityID)
 
-			// Constants
-			out.Action = "Allowed"
-			out.ActionID = 1
-			out.ActivityName = "Traffic"
-			out.ActivityID = 6
-			out.CategoryName = "Network Activity"
-			out.CategoryUID = 4
-			out.ClassName = "DNS Activity"
-			out.ClassUID = 4003
-			out.Connection = route53ConnInfo{Direction: "Unknown", DirectionID: 0}
-			out.Severity = "Informational"
-			out.SeverityID = 1
-			out.TypeName = "DNS Activity: Traffic"
-			out.TypeUID = 400306
-			out.Metadata.Profiles = []string{"cloud", "security_control", "datetime"}
-			out.Metadata.Version = "1.1.0"
-			out.Metadata.Product.Feature.Name = "Resolver Query Logs"
-			out.Metadata.Product.Name = "Route 53"
-			out.Metadata.Product.VendorName = "AWS"
-
-			// Cloud/account/region/provider
-			if v := tangenthelpers.GetString(lv, "account_id"); v != nil {
-				out.Cloud.Account.UID = *v
-			}
-			out.Cloud.Provider = "AWS"
-			if v := tangenthelpers.GetString(lv, "region"); v != nil {
-				out.Cloud.Region = *v
-			}
-
-			// Product version
-			if v := tangenthelpers.GetString(lv, "version"); v != nil {
-				out.Metadata.Product.Version = *v
-			}
-
-			// Query fields
-			if v := tangenthelpers.GetString(lv, "query_name"); v != nil {
-				out.Query.Hostname = *v
-			}
-			if v := tangenthelpers.GetString(lv, "query_type"); v != nil {
-				out.Query.Type = *v
-			}
-			if v := tangenthelpers.GetString(lv, "query_class"); v != nil {
-				out.Query.Class = *v
-			}
-
-			// rcode -> rcode/rcode_id
-			if v := tangenthelpers.GetString(lv, "rcode"); v != nil {
-				name, id := mapRCode(*v)
-				out.RCode = name
-				out.RCodeID = id
-			}
-
-			// answers[] (first element sufficient for sample)
-			if n := tangenthelpers.Len(lv, "answers"); n != nil && *n > 0 {
-				ans := route53Answer{}
-				if v := tangenthelpers.GetString(lv, "answers[0].Class"); v != nil {
-					ans.Class = *v
-				}
-				if v := tangenthelpers.GetString(lv, "answers[0].Rdata"); v != nil {
-					ans.RData = *v
-				}
-				if v := tangenthelpers.GetString(lv, "answers[0].Type"); v != nil {
-					ans.Type = *v
-				}
-				out.Answers = []route53Answer{ans}
-			}
-
-			// src endpoint
-			if v := tangenthelpers.GetString(lv, "srcaddr"); v != nil {
-				out.SrcEndpoint.IP = *v
-			}
-			if v := tangenthelpers.GetString(lv, "srcport"); v != nil {
-				if p, err := strconv.Atoi(*v); err == nil {
-					out.SrcEndpoint.Port = p
-				}
-			}
-			if v := tangenthelpers.GetString(lv, "vpc_id"); v != nil {
-				out.SrcEndpoint.VPCUID = *v
-			}
-
-			// dst endpoint identifiers
-			if v := tangenthelpers.GetString(lv, "srcids.resolver_endpoint"); v != nil {
-				out.DstEndpoint.InstanceUID = *v
-			}
-			if v := tangenthelpers.GetString(lv, "srcids.resolver_network_interface"); v != nil {
-				out.DstEndpoint.InterfaceUID = *v
-			}
-
-			// firewall rule
-			if v := tangenthelpers.GetString(lv, "firewall_rule_group_id"); v != nil {
-				out.FirewallRule.UID = *v
-			}
-			if v := tangenthelpers.GetString(lv, "firewall_rule_action"); v != nil {
-				// Map ALERT -> Alert
-				if *v == "ALERT" {
-					out.Disposition = "Alert"
-				} else {
-					out.Disposition = *v
-				}
-			}
-
-			// connection protocol
-			if v := tangenthelpers.GetString(lv, "transport"); v != nil {
-				out.Connection.Protocol = *v
-			}
-
-			// time and time_dt
+			// time
+			var timeMs int64
 			if v := tangenthelpers.GetString(lv, "query_timestamp"); v != nil {
 				if t, err := time.Parse(time.RFC3339, *v); err == nil {
-					out.Time = t.UnixMilli()
-					// Format with -04:00 fixed offset to match fixture
-					et := time.FixedZone("-0400", -4*3600)
-					out.TimeDT = t.In(et).Format("2006-01-02T15:04:05.000-07:00")
+					timeMs = t.UnixMilli()
 				}
 			}
 
-			// observables
-			var observables []route53Observable
-			if len(out.Answers) > 0 && out.Answers[0].RData != "" {
-				observables = append(observables, route53Observable{
-					Name:   "answers[].rdata",
-					Type:   "IP Address",
-					TypeID: 2,
-					Value:  out.Answers[0].RData,
-				})
+			// endpoints
+			var src *ocsf.NetworkEndpoint
+			if ip := tangenthelpers.GetString(lv, "srcaddr"); ip != nil {
+				src = &ocsf.NetworkEndpoint{Ip: ip}
+				if p := tangenthelpers.GetString(lv, "srcport"); p != nil {
+					if n, err := strconv.Atoi(*p); err == nil {
+						pn := int32(n)
+						src.Port = &pn
+					}
+				}
+				if v := tangenthelpers.GetString(lv, "vpc_id"); v != nil {
+					src.VpcUid = v
+				}
 			}
-			if out.DstEndpoint.InstanceUID != "" {
-				observables = append(observables, route53Observable{
-					Name:   "dst_endpoint.instance_uid",
-					Type:   "Resource UID",
-					TypeID: 10,
-					Value:  out.DstEndpoint.InstanceUID,
-				})
-			}
-			if out.SrcEndpoint.IP != "" {
-				observables = append(observables, route53Observable{
-					Name:   "src_endpoint.ip",
-					Type:   "IP Address",
-					TypeID: 2,
-					Value:  out.SrcEndpoint.IP,
-				})
-			}
-			if out.Query.Hostname != "" {
-				observables = append(observables, route53Observable{
-					Name:   "query.hostname",
-					Type:   "Hostname",
-					TypeID: 1,
-					Value:  out.Query.Hostname,
-				})
-			}
-			out.Observables = observables
-
-			// unmapped
-			if v := tangenthelpers.GetString(lv, "firewall_domain_list_id"); v != nil {
-				out.Unmapped.FirewallDomainListID = *v
+			var dst *ocsf.NetworkEndpoint
+			{
+				dst = &ocsf.NetworkEndpoint{}
+				if v := tangenthelpers.GetString(lv, "srcids.resolver_endpoint"); v != nil {
+					dst.InstanceUid = v
+				}
+				if v := tangenthelpers.GetString(lv, "srcids.resolver_network_interface"); v != nil {
+					dst.InterfaceUid = v
+				}
+				if dst.InstanceUid == nil && dst.InterfaceUid == nil {
+					dst = nil
+				}
 			}
 
-			// Encode one NDJSON line per input
-			if err := json.NewEncoder(buf).Encode(out); err != nil {
+			// connection info
+			var conn *ocsf.NetworkConnectionInformation
+			if tr := tangenthelpers.GetString(lv, "transport"); tr != nil {
+				name := strings.ToLower(*tr)
+				conn = &ocsf.NetworkConnectionInformation{ProtocolName: &name}
+			}
+
+			// query
+			q := &ocsf.DNSQuery{}
+			if v := tangenthelpers.GetString(lv, "query_name"); v != nil {
+				q.Hostname = *v
+			}
+			if v := tangenthelpers.GetString(lv, "query_type"); v != nil {
+				q.Type = v
+			}
+			if v := tangenthelpers.GetString(lv, "query_class"); v != nil {
+				q.Class = v
+			}
+
+			// answers (first only)
+			var answers []ocsf.DNSAnswer
+			if n := tangenthelpers.Len(lv, "answers"); n != nil && *n > 0 {
+				if v := tangenthelpers.GetString(lv, "answers[0].Rdata"); v != nil {
+					answers = append(answers, ocsf.DNSAnswer{Rdata: *v})
+				}
+			}
+
+			// rcode
+			var rcode *string
+			var rcodeId *int32
+			if v := tangenthelpers.GetString(lv, "rcode"); v != nil {
+				rcode = v
+				id := int32(99)
+				switch *v {
+				case "NOERROR":
+					id = 0
+				case "FormError":
+					id = 1
+				case "ServFail", "ServError":
+					id = 2
+				case "NXDomain":
+					id = 3
+				case "NotImp":
+					id = 4
+				case "Refused":
+					id = 5
+				}
+				rcodeId = &id
+			}
+
+			// metadata
+			prod := "Route 53"
+			vendor := "AWS"
+			md := ocsf.Metadata{Version: "1.5.0", Product: ocsf.Product{Name: &prod, VendorName: &vendor}}
+
+			out := ocsf.DNSActivity{
+				ActivityId:     activityID,
+				CategoryUid:    categoryUID,
+				ClassUid:       classUID,
+				SeverityId:     severityID,
+				TypeUid:        typeUID,
+				Time:           timeMs,
+				Metadata:       md,
+				SrcEndpoint:    src,
+				DstEndpoint:    dst,
+				ConnectionInfo: conn,
+				Query:          q,
+				Answers:        answers,
+				Rcode:          rcode,
+				RcodeId:        rcodeId,
+			}
+
+			line, err := json.Marshal(out)
+			if err != nil {
 				res.SetErr(err.Error())
 				return
 			}
+			buf.Write(line)
+			buf.WriteByte('\n')
 		}
 
 		res.SetOK(cm.ToList(buf.Bytes()))

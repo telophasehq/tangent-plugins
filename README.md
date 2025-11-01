@@ -1,8 +1,8 @@
-### README: Using the Tangent Plugins in your Go project
+### Tangent Plugins
 
-This repository contains Go mappers that convert various event sources into OCSF v1.5.0 types
+This repository contains  mappers that convert various event sources into OCSF v1.5.0 types
 
-They work out of the box with with https://github.com/telophasehq/tangent:
+They work out of the box with with [Tangent](https://github.com/telophasehq/tangent):
 
 ```sh
 git clone https://github.com/telophasehq/tangent-plugins

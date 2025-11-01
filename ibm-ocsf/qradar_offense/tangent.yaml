@@ -1,0 +1,30 @@
+runtime:
+  plugins_path: "plugins/"
+plugins:
+  qradar_offense:
+    module_type: go
+    path: .
+    tests:
+      - input: tests/input.json
+        expected: tests/expected.json
+sources:
+  socket_main:
+    type: socket
+    path: "/tmp/sidecar.sock"
+sinks:
+  blackhole:
+    type: blackhole
+dag:
+  - from:
+      kind: source
+      name: socket_main
+    to:
+      - kind: plugin
+        name: qradar_offense
+
+  - from:
+      kind: plugin
+      name: qradar_offense
+    to:
+      - kind: sink
+        name: blackhole

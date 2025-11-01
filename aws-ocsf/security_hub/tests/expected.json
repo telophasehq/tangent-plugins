@@ -1,22 +1,4 @@
 [
-  {
-    "message": "my log",
-    "level": "info",
-    "seen": 5,
-    "duration": 6.3,
-    "tags": [
-      "tag1"
-    ],
-    "service": "myservice"
-  },
-  {
-    "message": "my log",
-    "level": "info",
-    "seen": 5,
-    "duration": 6.3,
-    "tags": [
-      "tag1"
-    ],
-    "service": "myservice"
-  }
+  {"activity_id":3,"activity_name":"Close","category_name":"Findings","category_uid":2,"class_name":"Vulnerability Finding","class_uid":2002,"end_time":1728559800000,"finding_info":{"created_time":1728471600000,"data_sources":["securityhub"],"desc":"Example vulnerable package","first_seen_time":1728471600000,"last_seen_time":1728559800000,"modified_time":1728559800000,"title":"Package vulnerable to CVE","types":["Vulnerability"],"uid":"arn:aws:securityhub:us-east-1:123456789012:product/custom/finding/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},"message":"Example vulnerable package","metadata":{"product":{"name":"SecurityHub","vendor_name":"AWS"},"version":"1.5.0"},"severity":"medium","severity_id":3,"start_time":1728471600000,"status":"closed","status_id":4,"time":1728559800000,"type_name":"Vulnerability Finding: Close","type_uid":200203,"vulnerabilities":[{"cve":{"cvss":[{"base_score":7.5,"version":"3.1"}],"references":["https://nvd.nist.gov/vuln/detail/CVE-2024-9999"],"uid":"CVE-2024-9999"},"cwe":{"src_url":"https://cwe.mitre.org/data/definitions/79.html","uid":"CWE-79"},"desc":"Example vulnerable package","first_seen_time":1728471600000,"is_exploit_available":false,"is_fix_available":false,"last_seen_time":1728559800000,"severity":"medium","title":"Package vulnerable to CVE","vendor_name":"AWS"}]},
+  {"activity_id":1,"activity_name":"Create","category_name":"Findings","category_uid":2,"class_name":"Vulnerability Finding","class_uid":2002,"finding_info":{"created_time":1728561600000,"data_sources":["securityhub"],"desc":"An EC2 instance has a public IP assigned.","first_seen_time":1728561600000,"last_seen_time":1728561600000,"modified_time":1728561600000,"title":"EC2 instance should not have a public IP address","types":["Vulnerability"],"uid":"arn:aws:securityhub:us-east-1:123456789012:subscription/aws-foundational-security-best-practices/v/1.0.0/EC2.1/finding/11111111-2222-3333-4444-555555555555"},"message":"An EC2 instance has a public IP assigned.","metadata":{"product":{"name":"SecurityHub","vendor_name":"AWS"},"version":"1.5.0"},"severity":"low","severity_id":2,"start_time":1728561600000,"status":"open","status_id":1,"time":1728561600000,"type_name":"Vulnerability Finding: Create","type_uid":200201,"vulnerabilities":[{"cve":{"cvss":[{"base_score":5.6,"vector_string":"AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N","version":"3.1"}],"references":["https://example.com/cve-2024-0001"],"uid":"CVE-2024-0001"},"cwe":{"src_url":"https://cwe.mitre.org/data/definitions/123.html","uid":"CWE-123"},"desc":"An EC2 instance has a public IP assigned.","first_seen_time":1728561600000,"is_exploit_available":false,"is_fix_available":false,"last_seen_time":1728561600000,"severity":"low","title":"EC2 instance should not have a public IP address","vendor_name":"AWS"}]}
 ]

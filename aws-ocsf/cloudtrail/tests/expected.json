@@ -1,22 +1,2 @@
-[
-  {
-    "message": "my log",
-    "level": "info",
-    "seen": 5,
-    "duration": 6.3,
-    "tags": [
-      "tag1"
-    ],
-    "service": "myservice"
-  },
-  {
-    "message": "my log",
-    "level": "info",
-    "seen": 5,
-    "duration": 6.3,
-    "tags": [
-      "tag1"
-    ],
-    "service": "myservice"
-  }
-]
+[{"activity_id":0,"activity_name":"unknown","actor":{"app_name":"signin.amazonaws.com","user":{"account":{"type":"AWS Account","type_id":10,"uid":"111122223333"},"name":"anaya"}},"api":{"operation":"ConsoleLogin","service":{"name":"signin.amazonaws.com"}},"category_name":"Application Activity","category_uid":6,"class_name":"API Activity","class_uid":6003,"metadata":{"correlation_uid":"fed06f42-cb12-4764-8c69-121063dc79b9","product":{},"version":"1.5.0"},"severity":"informational","severity_id":1,"src_endpoint":{"ip":"192.0.2.0"},"status":"success","status_id":1,"time":1668097474000,"timezone_offset":0,"type_name":"API Activity: Unknown","type_uid":600300},{"activity_id":1,"activity_name":"create","actor":{"app_name":"iam.amazonaws.com"},"api":{"operation":"CreateUser","service":{"name":"iam.amazonaws.com"}},"category_name":"Application Activity","category_uid":6,"class_name":"API Activity","class_uid":6003,"metadata":{"correlation_uid":"7dd15a89-ae0f-4340-8e6c-d6981246c71b","product":{},"version":"1.5.0"},"severity":"informational","severity_id":1,"src_endpoint":{"ip":"52.95.4.21"},"status":"success","status_id":1,"time":1679072879000,"timezone_offset":0,"type_name":"API Activity: Create","type_uid":600301},{"activity_id":2,"activity_name":"read","actor":{"app_name":"directconnect.amazonaws.com","user":{"account":{"type":"AWS Account","type_id":10,"uid":"811596193553"},"name":"Level6"}},"api":{"operation":"DescribeDirectConnectGateways","service":{"name":"directconnect.amazonaws.com"}},"category_name":"Application Activity","category_uid":6,"class_name":"API Activity","class_uid":6003,"metadata":{"correlation_uid":"71c88be9-ea5c-43c7-8c82-02ecb5ec7f09","product":{},"version":"1.5.0"},"severity":"informational","severity_id":1,"src_endpoint":{"ip":"205.8.181.128"},"status":"success","status_id":1,"time":1600726972000,"timezone_offset":0,"type_name":"API Activity: Read","type_uid":600302}]
+

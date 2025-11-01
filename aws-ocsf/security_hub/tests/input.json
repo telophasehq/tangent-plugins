@@ -1,26 +1,42 @@
 [
   {
-    "msg": "my log",
-    "msg.level": "info",
-    "seen": 5,
-    "duration": 6.3,
-    "tags": [
-      "tag1"
-    ],
-    "source": {
-      "name": "myservice"
-    }
+    "Id": "arn:aws:securityhub:us-east-1:123456789012:subscription/aws-foundational-security-best-practices/v/1.0.0/EC2.1/finding/11111111-2222-3333-4444-555555555555",
+    "Title": "EC2 instance should not have a public IP address",
+    "Description": "An EC2 instance has a public IP assigned.",
+    "CreatedAt": "2024-10-10T12:00:00Z",
+    "UpdatedAt": "2024-10-10T12:00:00Z",
+    "Workflow": { "Status": "NEW" },
+    "Severity": { "Label": "LOW" },
+    "Types": ["CWE-123"],
+    "Resources": [ { "Type": "AwsEc2Instance", "Id": "i-0abcd1234ef567890" } ],
+    "Vulnerabilities": [
+      {
+        "Id": "CVE-2024-0001",
+        "Cvss": [ { "BaseScore": 5.6, "Version": "3.1", "BaseVector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N" } ],
+        "ReferenceUrls": ["https://example.com/cve-2024-0001"]
+      }
+    ]
   },
   {
-    "msg": "my log",
-    "msg.level": "info",
-    "seen": 5,
-    "duration": 6.3,
-    "tags": [
-      "tag1"
+    "Id": "arn:aws:securityhub:us-east-1:123456789012:product/custom/finding/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "Title": "Package vulnerable to CVE",
+    "Description": "Example vulnerable package",
+    "CreatedAt": "2024-10-09T11:00:00Z",
+    "UpdatedAt": "2024-10-10T11:30:00Z",
+    "Workflow": { "Status": "RESOLVED" },
+    "Severity": { "Label": "MEDIUM" },
+    "Types": ["CWE-79"],
+    "Resources": [ { "Type": "Other", "Id": "pkg://example/app@1.2.3" } ],
+    "Vulnerabilities": [
+      {
+        "Id": "CVE-2024-9999",
+        "Cvss": [ { "BaseScore": 7.5, "Version": "3.1" } ],
+        "ReferenceUrls": ["https://nvd.nist.gov/vuln/detail/CVE-2024-9999"]
+      }
     ],
-    "source": {
-      "name": "myservice"
-    }
+    "Remediation": { "Recommendation": { "Text": "Upgrade to 1.2.4", "Url": "https://example.com/advisory" } }
+  },
+  {
+    "NotMatched": true
   }
 ]

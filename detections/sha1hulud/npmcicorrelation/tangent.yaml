@@ -1,0 +1,37 @@
+runtime:
+  plugins_path: "plugins/"
+plugins:
+  npmcicorrelationdetector:
+    module_type: go
+    path: .
+    config:
+      slack_channel: slack-app-testing
+      unpublish: true
+      "@telophasehq/tangent-break-js":
+        repo: telophasehq/example-github
+        workflow: release.yml
+    tests:
+      - input: tests/input.json
+        expected: tests/expected.json
+sources:
+  npm_registry:
+    type: npm_registry
+    orgs: ["telophasehq"]
+    token: "${NPM_TOKEN}"
+sinks:
+  blackhole:
+    type: blackhole
+dag:
+  - from:
+      kind: source
+      name: npm_registry
+    to:
+      - kind: plugin
+        name: npmcicorrelationdetector
+
+  - from:
+      kind: plugin
+      name: npmcicorrelationdetector
+    to:
+      - kind: sink
+        name: blackhole
